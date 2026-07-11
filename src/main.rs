@@ -1,3 +1,4 @@
 fn main() {
-    println!("kupo ✨");
+    let name = "kupo";
+    println!("{} ✨", name);
 }
