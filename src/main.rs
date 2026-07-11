@@ -1,39 +1,53 @@
 use std::env;
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    match args.as_slice() {
-        [_, command, action] if command == "stash" => match parse_stash_cmd(action) {
-            Ok(cmd) => stash(cmd),
-            Err(err) => println!("{}", err),
-        },
-        _ => {
-            println!("usage: kupo stash open|close")
-        }
-    }
+enum KupoCommand {
+    Stash(KupoStashAction),
 }
 
-fn parse_stash_cmd(action: &str) -> Result<StashAction, String> {
-    match action {
-        "open" => Ok(StashAction::Open),
-        "close" => Ok(StashAction::Close),
-        _ => Err(format!("unknown action: {}", action)),
-    }
-}
-
-enum StashAction {
+enum KupoStashAction {
     Open,
     Close,
 }
 
-fn stash(action: StashAction) {
-    match action {
-        StashAction::Open => {
-            println!("opening stash, kupo!");
+fn main() {
+    match parse_args() {
+        Ok(command) => run(command),
+        Err(err) => eprintln!("{}", err),
+    }
+}
+
+fn parse_args() -> Result<KupoCommand, String> {
+    let args: Vec<String> = env::args().collect();
+
+    match args.as_slice() {
+        [_, command, action] if command == "stash" => {
+            Ok(KupoCommand::Stash(parse_stash_action(action)?))
         }
-        StashAction::Close => {
-            println!("closing stash, kupo!");
+        _ => Err("usage: kupo stash open/close".into()),
+    }
+}
+
+fn parse_stash_action(action: &str) -> Result<KupoStashAction, String> {
+    match action {
+        "open" => Ok(KupoStashAction::Open),
+        "close" => Ok(KupoStashAction::Close),
+        _ => Err(format!("unknown stash action: {}", action)),
+    }
+}
+
+fn run(command: KupoCommand) {
+    match command {
+        KupoCommand::Stash(action) => stash(action),
+    }
+}
+
+fn stash(action: KupoStashAction) {
+    match action {
+        KupoStashAction::Open => {
+            println!("opening stash, kupo!")
+        }
+        KupoStashAction::Close => {
+            println!("closing stash, kupo!")
         }
     }
 }
