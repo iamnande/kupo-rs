@@ -42,12 +42,16 @@ enum KupoStashAction {
     Close,
 }
 
-fn main() -> Result<()> {
-    let command = parse_args()?;
-    run(command)
+fn main() {
+    if let Err(err) = run() {
+        eprintln!("KupoError: {err}");
+        std::process::exit(1);
+    }
 }
 
-fn run(command: KupoCommand) -> Result<()> {
+fn run() -> Result<()> {
+    let command = parse_args()?;
+
     match command {
         KupoCommand::Stash(action) => stash(action),
     }
@@ -74,13 +78,19 @@ fn parse_stash_action(action: &str) -> Result<KupoStashAction> {
 
 fn stash(action: KupoStashAction) -> Result<()> {
     match action {
-        KupoStashAction::Open => {
-            println!("opening stash, kupo!")
-        }
-        KupoStashAction::Close => {
-            println!("closing stash, kupo!")
-        }
-    }
+        KupoStashAction::Open => stash_open()?,
+        KupoStashAction::Close => stash_close()?,
+    };
 
+    Ok(())
+}
+
+fn stash_open() -> Result<()> {
+    println!("opening stash, kupo!");
+    Ok(())
+}
+
+fn stash_close() -> Result<()> {
+    println!("closing stash, kupo!");
     Ok(())
 }
