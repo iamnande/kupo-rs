@@ -1,4 +1,4 @@
-use std::{env, error::Error, fmt};
+use std::{env, error::Error, fmt, path::PathBuf};
 
 type Result<T> = std::result::Result<T, KupoError>;
 
@@ -76,21 +76,38 @@ fn parse_stash_action(action: &str) -> Result<KupoStashAction> {
     }
 }
 
+struct Stash {
+    name: String,              // "skate (SanDisk Extreme Pro - 64GB - 280MB/s R, 100MB/s W)"
+    block_device_name: String, // "sda1"
+}
+
+impl Stash {
+    fn open(&self) -> Result<()> {
+        println!("opening stash, kupo!");
+        println!("- name: {}", self.name);
+        println!("- block_device_name: {:?}", self.block_device_name);
+        println!("- mount_path: {:?}", self.mount_path());
+        Ok(())
+    }
+    fn close(&self) -> Result<()> {
+        println!("closing stash, kupo!");
+        Ok(())
+    }
+    fn mount_path(&self) -> PathBuf {
+        PathBuf::from(format!("/mnt/sd-card_{}", self.name))
+    }
+}
+
 fn stash(action: KupoStashAction) -> Result<()> {
+    let stash = Stash {
+        // SanDisk Extreme Pro, 64GB, 280MB/100MB
+        name: "skate".into(),
+        block_device_name: "sda1".into(),
+    };
     match action {
-        KupoStashAction::Open => stash_open()?,
-        KupoStashAction::Close => stash_close()?,
+        KupoStashAction::Open => stash.open()?,
+        KupoStashAction::Close => stash.close()?,
     };
 
-    Ok(())
-}
-
-fn stash_open() -> Result<()> {
-    println!("opening stash, kupo!");
-    Ok(())
-}
-
-fn stash_close() -> Result<()> {
-    println!("closing stash, kupo!");
     Ok(())
 }
