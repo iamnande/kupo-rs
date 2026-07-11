@@ -95,6 +95,12 @@ impl Stash {
         println!("- block_device_name: {:?}", self.block_device_name);
         println!("- block_device_path: {:?}", self.block_device_path());
         println!("- mount_path: {:?}", self.mount_path());
+
+        // see a path, make a path
+        if !self.mount_path().exists() {
+            std::fs::create_dir_all(self.mount_path())?;
+        }
+
         Ok(())
     }
 
@@ -104,6 +110,12 @@ impl Stash {
         println!("- block_device_name: {:?}", self.block_device_name);
         println!("- block_device_path: {:?}", self.block_device_path());
         println!("- mount_path: {:?}", self.mount_path());
+
+        // see a path, kill a path
+        if self.mount_path().exists() {
+            std::fs::remove_dir(self.mount_path())?;
+        }
+
         Ok(())
     }
 
