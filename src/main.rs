@@ -82,28 +82,43 @@ struct Stash {
 }
 
 impl Stash {
+    fn new(name: String, block_device_name: String) -> Self {
+        Self {
+            name,
+            block_device_name,
+        }
+    }
+
     fn open(&self) -> Result<()> {
         println!("opening stash, kupo!");
         println!("- name: {}", self.name);
         println!("- block_device_name: {:?}", self.block_device_name);
+        println!("- block_device_path: {:?}", self.block_device_path());
         println!("- mount_path: {:?}", self.mount_path());
         Ok(())
     }
+
     fn close(&self) -> Result<()> {
         println!("closing stash, kupo!");
+        println!("- name: {}", self.name);
+        println!("- block_device_name: {:?}", self.block_device_name);
+        println!("- block_device_path: {:?}", self.block_device_path());
+        println!("- mount_path: {:?}", self.mount_path());
         Ok(())
     }
+
+    fn block_device_path(&self) -> PathBuf {
+        PathBuf::from("/dev").join(&self.block_device_name)
+    }
+
     fn mount_path(&self) -> PathBuf {
-        PathBuf::from(format!("/mnt/sd-card_{}", self.name))
+        PathBuf::from("/mnt").join(format!("sd-card_{}", self.name))
     }
 }
 
 fn stash(action: KupoStashAction) -> Result<()> {
-    let stash = Stash {
-        // SanDisk Extreme Pro, 64GB, 280MB/100MB
-        name: "skate".into(),
-        block_device_name: "sda1".into(),
-    };
+    let stash = Stash::new("skate".into(), "sda1".into());
+
     match action {
         KupoStashAction::Open => stash.open()?,
         KupoStashAction::Close => stash.close()?,
