@@ -1,4 +1,12 @@
-use std::{env, error::Error, fmt, path::PathBuf};
+use std::{
+    env,
+    error::Error,
+    fmt,
+    fs::File,
+    io::{self, BufRead},
+    path::PathBuf,
+    process::Command,
+};
 
 type Result<T> = std::result::Result<T, KupoError>;
 
@@ -8,6 +16,8 @@ enum KupoError {
     UnknownStashAction(String),
     StashOpen,
     StashClosed,
+    MountFailed(std::process::ExitStatus),
+    UmountFailed(std::process::ExitStatus),
     Io(std::io::Error),
 }
 
@@ -25,6 +35,12 @@ impl fmt::Display for KupoError {
             }
             Self::StashClosed => {
                 write!(f, "stash is closed, kupo!")
+            }
+            Self::MountFailed(status) => {
+                write!(f, "mount has failed to appear, kupo! ({status})")
+            }
+            Self::UmountFailed(status) => {
+                write!(f, "umount has failed to dissappear, kupo! ({status})")
             }
             Self::Io(err) => {
                 write!(f, "{err}")
@@ -47,6 +63,7 @@ enum KupoCommand {
 
 enum KupoStashAction {
     Open,
+    Status,
     Close,
 }
 
@@ -79,6 +96,7 @@ fn parse_args() -> Result<KupoCommand> {
 fn parse_stash_action(action: &str) -> Result<KupoStashAction> {
     match action {
         "open" => Ok(KupoStashAction::Open),
+        "status" => Ok(KupoStashAction::Status),
         "close" => Ok(KupoStashAction::Close),
         _ => Err(KupoError::UnknownStashAction(action.to_owned())),
     }
@@ -112,31 +130,57 @@ impl Stash {
         }
     }
 
+    fn inspect(&self) -> Result<()> {
+        println!("- name: {}", self.name);
+        println!("- block_device_name: {:?}", self.block_device_name);
+        println!("- block_device_path: {:?}", self.block_device_path());
+        println!("- mount_path: {:?}", self.mount_path());
+        println!("- status: {}", self.status()?);
+        Ok(())
+    }
+
     fn ensure_mount_path_exists(&self) -> Result<()> {
-        if let StashStatus::Open = self.status() {
-            return Err(KupoError::StashOpen);
-        }
-
         std::fs::create_dir_all(self.mount_path())?;
-
         Ok(())
     }
 
     fn ensure_mount_path_removed(&self) -> Result<()> {
-        if let StashStatus::Closed = self.status() {
-            return Err(KupoError::StashClosed);
+        if self.mount_path().exists() {
+            std::fs::remove_dir(self.mount_path())?;
         }
-
-        std::fs::remove_dir(self.mount_path())?;
-
         Ok(())
     }
 
     fn ensure_mounted(&self) -> Result<()> {
+        if let StashStatus::Open = self.status()? {
+            return Err(KupoError::StashOpen);
+        }
+
+        let status = Command::new("mount")
+            .arg(self.block_device_path())
+            .arg(self.mount_path())
+            .status()?;
+
+        // TODO: make this a real error
+        if !status.success() {
+            return Err(KupoError::MountFailed(status));
+        }
+
         Ok(())
     }
 
     fn ensure_unmounted(&self) -> Result<()> {
+        if let StashStatus::Closed = self.status()? {
+            return Err(KupoError::StashClosed);
+        }
+
+        let status = Command::new("umount").arg(self.mount_path()).status()?;
+
+        // TODO: make this a real error
+        if !status.success() {
+            return Err(KupoError::UmountFailed(status));
+        }
+
         Ok(())
     }
 
@@ -149,21 +193,24 @@ impl Stash {
         // "hey, socko!"
         self.ensure_mounted()?;
 
-        println!("- name: {}", self.name);
-        println!("- block_device_name: {:?}", self.block_device_name);
-        println!("- block_device_path: {:?}", self.block_device_path());
-        println!("- mount_path: {:?}", self.mount_path());
-        println!("- status: {}", self.status());
-
+        self.inspect()?;
         Ok(())
     }
 
-    fn status(&self) -> StashStatus {
-        if self.mount_path().exists() {
-            StashStatus::Open
-        } else {
-            StashStatus::Closed
+    fn status(&self) -> Result<StashStatus> {
+        let file = File::open("/proc/self/mountinfo")?;
+        let mount_records = io::BufReader::new(file).lines();
+
+        for mount_record in mount_records {
+            let mount_record = mount_record?;
+            let fields: Vec<&str> = mount_record.split_whitespace().collect();
+
+            if fields.len() > 4 && fields[4] == self.mount_path().to_string_lossy() {
+                return Ok(StashStatus::Open);
+            }
         }
+
+        Ok(StashStatus::Closed)
     }
 
     fn close(&self) -> Result<()> {
@@ -175,11 +222,7 @@ impl Stash {
         // see a path, kill a path
         self.ensure_mount_path_removed()?;
 
-        println!("- name: {}", self.name);
-        println!("- block_device_name: {:?}", self.block_device_name);
-        println!("- block_device_path: {:?}", self.block_device_path());
-        println!("- mount_path: {:?}", self.mount_path());
-        println!("- status: {}", self.status());
+        self.inspect()?;
         Ok(())
     }
 
@@ -197,6 +240,10 @@ fn stash(action: KupoStashAction) -> Result<()> {
 
     match action {
         KupoStashAction::Open => stash.open()?,
+        KupoStashAction::Status => {
+            println!("checking the status now, kupo!");
+            println!("status: {}", stash.status()?);
+        }
         KupoStashAction::Close => stash.close()?,
     };
 
