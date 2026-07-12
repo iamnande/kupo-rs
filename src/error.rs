@@ -12,6 +12,8 @@ pub enum KupoError {
     MountFailed(std::process::ExitStatus),
     UmountFailed(std::process::ExitStatus),
     Io(std::io::Error),
+    Toml(toml::de::Error),
+    Env(std::env::VarError),
 }
 
 impl fmt::Display for KupoError {
@@ -36,7 +38,13 @@ impl fmt::Display for KupoError {
                 write!(f, "umount has failed to dissappear, kupo! ({status})")
             }
             Self::Io(err) => {
-                write!(f, "{err}")
+                write!(f, "i/o failure: {err}")
+            }
+            Self::Toml(err) => {
+                write!(f, "toml failure: {err}")
+            }
+            Self::Env(err) => {
+                write!(f, "env failure: {err}")
             }
         }
     }
@@ -47,5 +55,17 @@ impl Error for KupoError {}
 impl From<std::io::Error> for KupoError {
     fn from(err: std::io::Error) -> Self {
         Self::Io(err)
+    }
+}
+
+impl From<toml::de::Error> for KupoError {
+    fn from(err: toml::de::Error) -> Self {
+        Self::Toml(err)
+    }
+}
+
+impl From<std::env::VarError> for KupoError {
+    fn from(err: std::env::VarError) -> Self {
+        Self::Env(err)
     }
 }

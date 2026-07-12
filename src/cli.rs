@@ -1,3 +1,4 @@
+use crate::config::{KupoConfig, load_config};
 use crate::error::{KupoError, Result};
 use crate::stash::Stash;
 
@@ -15,9 +16,10 @@ pub enum KupoStashAction {
 
 pub fn run() -> Result<()> {
     let command = parse_args()?;
+    let config = load_config()?;
 
     match command {
-        KupoCommand::Stash(action) => stash(action),
+        KupoCommand::Stash(action) => stash(config, action),
     }
 }
 
@@ -41,8 +43,8 @@ fn parse_stash_action(action: &str) -> Result<KupoStashAction> {
     }
 }
 
-fn stash(action: KupoStashAction) -> Result<()> {
-    let stash = Stash::new("skate".into(), "sda1".into());
+fn stash(config: KupoConfig, action: KupoStashAction) -> Result<()> {
+    let stash = Stash::new(config.stash.slug, config.stash.label);
 
     match action {
         KupoStashAction::Open => stash.open()?,
