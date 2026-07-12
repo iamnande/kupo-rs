@@ -132,17 +132,29 @@ impl Stash {
         Ok(())
     }
 
+    fn ensure_mounted(&self) -> Result<()> {
+        Ok(())
+    }
+
+    fn ensure_unmounted(&self) -> Result<()> {
+        Ok(())
+    }
+
     fn open(&self) -> Result<()> {
         println!("opening stash, kupo!");
 
         // see a path, make a path
         self.ensure_mount_path_exists()?;
 
+        // "hey, socko!"
+        self.ensure_mounted()?;
+
         println!("- name: {}", self.name);
         println!("- block_device_name: {:?}", self.block_device_name);
         println!("- block_device_path: {:?}", self.block_device_path());
         println!("- mount_path: {:?}", self.mount_path());
         println!("- status: {}", self.status());
+
         Ok(())
     }
 
@@ -156,6 +168,9 @@ impl Stash {
 
     fn close(&self) -> Result<()> {
         println!("closing stash, kupo!");
+
+        // "goodbye, socko!"
+        self.ensure_unmounted()?;
 
         // see a path, kill a path
         self.ensure_mount_path_removed()?;
