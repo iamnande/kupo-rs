@@ -6,6 +6,8 @@ type Result<T> = std::result::Result<T, KupoError>;
 enum KupoError {
     Usage,
     UnknownStashAction(String),
+    StashOpen,
+    StashClosed,
     Io(std::io::Error),
 }
 
@@ -17,6 +19,12 @@ impl fmt::Display for KupoError {
             }
             Self::UnknownStashAction(action) => {
                 write!(f, "unknown stash action: {action}")
+            }
+            Self::StashOpen => {
+                write!(f, "stash is open, kupo!")
+            }
+            Self::StashClosed => {
+                write!(f, "stash is closed, kupo!")
             }
             Self::Io(err) => {
                 write!(f, "{err}")
@@ -76,6 +84,21 @@ fn parse_stash_action(action: &str) -> Result<KupoStashAction> {
     }
 }
 
+#[derive(Debug)]
+enum StashStatus {
+    Open,
+    Closed,
+}
+
+impl fmt::Display for StashStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Open => write!(f, "open"),
+            Self::Closed => write!(f, "closed"),
+        }
+    }
+}
+
 struct Stash {
     name: String,              // "skate (SanDisk Extreme Pro - 64GB - 280MB/s R, 100MB/s W)"
     block_device_name: String, // "sda1"
@@ -89,33 +112,59 @@ impl Stash {
         }
     }
 
-    fn open(&self) -> Result<()> {
-        println!("opening stash, kupo!");
-        println!("- name: {}", self.name);
-        println!("- block_device_name: {:?}", self.block_device_name);
-        println!("- block_device_path: {:?}", self.block_device_path());
-        println!("- mount_path: {:?}", self.mount_path());
-
-        // see a path, make a path
-        if !self.mount_path().exists() {
-            std::fs::create_dir_all(self.mount_path())?;
+    fn ensure_mount_path_exists(&self) -> Result<()> {
+        if let StashStatus::Open = self.status() {
+            return Err(KupoError::StashOpen);
         }
+
+        std::fs::create_dir_all(self.mount_path())?;
 
         Ok(())
     }
 
-    fn close(&self) -> Result<()> {
-        println!("closing stash, kupo!");
+    fn ensure_mount_path_removed(&self) -> Result<()> {
+        if let StashStatus::Closed = self.status() {
+            return Err(KupoError::StashClosed);
+        }
+
+        std::fs::remove_dir(self.mount_path())?;
+
+        Ok(())
+    }
+
+    fn open(&self) -> Result<()> {
+        println!("opening stash, kupo!");
+
+        // see a path, make a path
+        self.ensure_mount_path_exists()?;
+
         println!("- name: {}", self.name);
         println!("- block_device_name: {:?}", self.block_device_name);
         println!("- block_device_path: {:?}", self.block_device_path());
         println!("- mount_path: {:?}", self.mount_path());
+        println!("- status: {}", self.status());
+        Ok(())
+    }
+
+    fn status(&self) -> StashStatus {
+        if self.mount_path().exists() {
+            StashStatus::Open
+        } else {
+            StashStatus::Closed
+        }
+    }
+
+    fn close(&self) -> Result<()> {
+        println!("closing stash, kupo!");
 
         // see a path, kill a path
-        if self.mount_path().exists() {
-            std::fs::remove_dir(self.mount_path())?;
-        }
+        self.ensure_mount_path_removed()?;
 
+        println!("- name: {}", self.name);
+        println!("- block_device_name: {:?}", self.block_device_name);
+        println!("- block_device_path: {:?}", self.block_device_path());
+        println!("- mount_path: {:?}", self.mount_path());
+        println!("- status: {}", self.status());
         Ok(())
     }
 
